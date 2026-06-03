@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #000000;
+  --bg-surface: #0a0a0f;
+  --bg-elevated: #13131a;
+  --accent-primary: #4d9bff;
+  --accent-glow: #00d4ff;
+  --field-border: #ffd600;
+  --text-primary: #ffffff;
+  --text-secondary: #b4b4be;
+  --text-tertiary: #6b6b7a;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+body {
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Ambient radial glow behind the page */
+  background-image:
+    radial-gradient(60% 50% at 50% -10%, rgba(77, 155, 255, 0.16), transparent 70%),
+    radial-gradient(40% 40% at 90% 10%, rgba(0, 212, 255, 0.08), transparent 70%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(77, 155, 255, 0.35);
+}
+
+/* Thin custom scrollbar */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+@layer components {
+  .card {
+    @apply bg-elevated rounded-lg border border-subtle shadow-card;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill bg-accent px-6 py-3 font-semibold text-white transition-all duration-200;
+    box-shadow: 0 8px 30px -8px rgba(77, 155, 255, 0.6);
+  }
+  .btn-primary:hover:not(:disabled) {
+    @apply -translate-y-0.5;
+    box-shadow: 0 14px 40px -10px rgba(77, 155, 255, 0.75);
+  }
+  .btn-primary:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill border border-subtle bg-transparent px-6 py-3 font-semibold text-text-primary transition-colors duration-200;
+  }
+  .btn-outline:hover {
+    @apply border-white/30 bg-white/5;
+  }
+
+  .glass-nav {
+    background: rgba(10, 10, 15, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-pill border border-subtle bg-white/5 px-3 py-1 text-sm text-text-secondary;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
