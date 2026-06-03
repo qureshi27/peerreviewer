@@ -14,11 +14,15 @@ Rejected**.
 
 | Reviewer | Focus | Model |
 | --- | --- | --- |
-| Reviewer 1 | Methodology & Rigor | `meta/llama-3.3-70b-instruct` |
-| Reviewer 2 | Novelty & Significance | `meta/llama-3.1-70b-instruct` |
-| Reviewer 3 | Results & Validity | `qwen/qwen3-next-80b-a3b-instruct` |
+| Reviewer 1 | Methodology & Rigor | `nvidia/nemotron-3-super-120b-a12b` |
+| Reviewer 2 | Novelty & Significance | `qwen/qwen3.5-397b-a17b` |
+| Reviewer 3 | Results & Validity | `qwen/qwen3.5-122b-a10b` |
 | Reviewer 4 | Clarity & Reproducibility | `mistralai/mixtral-8x7b-instruct-v0.1` |
-| Handling Editor | Final decision | `abacusai/dracarys-llama-3.1-70b-instruct` |
+| Handling Editor | Final decision | `nvidia/llama-3.3-nemotron-super-49b-v1.5` |
+
+> The results view has two tabs: **Consolidated Decision** (the final verdict plus a one-glance
+> matrix of every reviewer's recommendation, score and confidence) and **Detailed Reviews** (the
+> full per-reviewer cards).
 
 Swap any model by editing [`lib/reviewers.ts`](lib/reviewers.ts) — any model id from
 [build.nvidia.com](https://build.nvidia.com) works (the endpoint is OpenAI-compatible).
@@ -63,9 +67,17 @@ NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1   # optional override
 Optional tuning knobs (defaults are tuned for Vercel's 60s function limit):
 
 ```
-REVIEWER_TIMEOUT_MS=33000   # per-reviewer wall-clock budget
-EDITOR_TIMEOUT_MS=22000     # editor wall-clock budget
+REVIEWER_TIMEOUT_MS=40000   # per-reviewer wall-clock budget
+EDITOR_TIMEOUT_MS=18000     # editor wall-clock budget
 ```
+
+> **About the large models.** This panel uses big models on purpose (a 120B Nemotron, a 397B-MoE
+> and a 122B-MoE Qwen). They are reasoning-capable and slower than 70B-class models. On Vercel's
+> **Hobby** plan (60s cap) the 120B reviewer can occasionally exceed its 40s slice and drop out —
+> the editor then decides on the reviewers that finished, and a decision is always returned. For
+> **all four reviewers every time**, deploy on **Vercel Pro**, raise `maxDuration` in
+> [`app/api/review/route.ts`](app/api/review/route.ts) (e.g. to `120`), and set
+> `REVIEWER_TIMEOUT_MS=90000` / `EDITOR_TIMEOUT_MS=40000`.
 
 ## Deploy to Vercel
 

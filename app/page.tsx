@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import UploadForm from "@/components/UploadForm";
 import ReviewerCard, { type CardStatus } from "@/components/ReviewerCard";
-import DecisionBanner from "@/components/DecisionBanner";
+import ConsolidatedPanel from "@/components/ConsolidatedPanel";
 import { IconArrow, IconDoc, IconGavel, IconSpark, IconUser } from "@/components/icons";
 import { publicReviewers, EDITOR } from "@/lib/reviewers";
 import type {
@@ -37,6 +37,7 @@ export default function Home() {
   const [quartile, setQuartile] = useState<Quartile | undefined>();
   const [statusMsg, setStatusMsg] = useState("");
   const [fatalError, setFatalError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"decision" | "reviews">("decision");
   const resultsRef = useRef<HTMLDivElement>(null);
 
   async function startReview(paperText: string, q: Quartile) {
@@ -47,6 +48,7 @@ export default function Home() {
     setVerdict(undefined);
     setFatalError(null);
     setQuartile(q);
+    setTab("decision");
     setStatusMsg("Connecting to the review panel…");
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
 
@@ -243,8 +245,36 @@ export default function Home() {
               </div>
             )}
 
-            <div>
-              <h2 className="mb-4 text-2xl font-bold">Reviews</h2>
+            {/* Tabs */}
+            <div className="inline-flex rounded-pill border border-subtle p-1 text-sm">
+              {([
+                { id: "decision", label: "Consolidated Decision" },
+                { id: "reviews", label: "Detailed Reviews" },
+              ] as const).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={`rounded-pill px-4 py-1.5 transition-colors ${
+                    tab === t.id
+                      ? "bg-accent text-white"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {tab === "decision" ? (
+              <ConsolidatedPanel
+                panel={PANEL}
+                states={states}
+                editorStatus={editorStatus}
+                verdict={verdict}
+                quartile={quartile}
+              />
+            ) : (
               <div className="grid gap-5 lg:grid-cols-2">
                 {PANEL.map((r) => (
                   <ReviewerCard
@@ -255,13 +285,6 @@ export default function Home() {
                     errorMsg={states[r.id]?.error}
                   />
                 ))}
-              </div>
-            </div>
-
-            {editorStatus !== "idle" && (
-              <div>
-                <h2 className="mb-4 text-2xl font-bold">Decision</h2>
-                <DecisionBanner status={editorStatus} verdict={verdict} quartile={quartile} />
               </div>
             )}
           </div>

@@ -15,8 +15,8 @@ export const REVIEWERS: ReviewerConfig[] = [
     role: "Methodology & Rigor",
     blurb:
       "Scrutinises study design, statistics, controls, sample sizes and whether the methods can actually answer the research question.",
-    model: "meta/llama-3.3-70b-instruct",
-    modelLabel: "Llama 3.3 70B",
+    model: "nvidia/nemotron-3-super-120b-a12b",
+    modelLabel: "Nemotron 3 Super 120B",
     hue: "#4D9BFF",
   },
   {
@@ -25,8 +25,8 @@ export const REVIEWERS: ReviewerConfig[] = [
     role: "Novelty & Significance",
     blurb:
       "Weighs the contribution against the existing literature — is this new, important, and positioned correctly within the field?",
-    model: "meta/llama-3.1-70b-instruct",
-    modelLabel: "Llama 3.1 70B",
+    model: "qwen/qwen3.5-397b-a17b",
+    modelLabel: "Qwen3.5 397B MoE",
     hue: "#00D4FF",
   },
   {
@@ -35,8 +35,8 @@ export const REVIEWERS: ReviewerConfig[] = [
     role: "Results & Validity",
     blurb:
       "Checks whether the claims are actually supported by the evidence, hunts for over-claiming, confounds and unaddressed limitations.",
-    model: "qwen/qwen3-next-80b-a3b-instruct",
-    modelLabel: "Qwen3 Next 80B",
+    model: "qwen/qwen3.5-122b-a10b",
+    modelLabel: "Qwen3.5 122B MoE",
     hue: "#A78BFA",
   },
   {
@@ -60,8 +60,8 @@ export const EDITOR = {
   id: "editor",
   name: "Handling Editor",
   role: "Editorial Decision",
-  model: "abacusai/dracarys-llama-3.1-70b-instruct",
-  modelLabel: "Dracarys Llama 3.1 70B",
+  model: "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+  modelLabel: "Nemotron Super 49B",
   hue: "#34D399",
 };
 

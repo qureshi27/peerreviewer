@@ -27,8 +27,8 @@ export const maxDuration = 60;
 // once. 42s + 15s leaves headroom under the 60s function ceiling, and any
 // reviewer that blows its budget simply drops out — the editor decides on the
 // rest rather than the whole request hanging.
-const REVIEWER_TIMEOUT_MS = Number(process.env.REVIEWER_TIMEOUT_MS) || 33_000;
-const EDITOR_TIMEOUT_MS = Number(process.env.EDITOR_TIMEOUT_MS) || 22_000;
+const REVIEWER_TIMEOUT_MS = Number(process.env.REVIEWER_TIMEOUT_MS) || 40_000;
+const EDITOR_TIMEOUT_MS = Number(process.env.EDITOR_TIMEOUT_MS) || 18_000;
 
 const QUARTILES: Quartile[] = ["Q1", "Q2", "Q3", "Q4"];
 // Cap the manuscript size to keep latency and token cost sane. ~60k chars is
@@ -152,7 +152,7 @@ async function runReviewer(
     system: buildReviewerSystem(reviewer, quartile),
     user: buildReviewerUser(paperText),
     temperature: 0.5,
-    maxTokens: 1800,
+    maxTokens: 1300,
     timeoutMs: REVIEWER_TIMEOUT_MS,
   });
   return sanitizeReview(extractJson<any>(text));

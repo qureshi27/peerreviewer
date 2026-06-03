@@ -50,11 +50,16 @@ export async function complete({
   maxTokens = 2400,
   timeoutMs = 90_000,
 }: CompletionOpts): Promise<string> {
-  const res = await nvidia().chat.completions.create(
+  // We stream and accumulate rather than awaiting one big response. The NVIDIA
+  // gateway returns a 504 on long *non-streamed* generations (large/reasoning
+  // models routinely blow past it); streaming keeps the connection alive and
+  // lets our own AbortSignal enforce the real deadline.
+  const stream = await nvidia().chat.completions.create(
     {
       model,
       temperature,
       max_tokens: maxTokens,
+      stream: true,
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
@@ -62,7 +67,12 @@ export async function complete({
     },
     { timeout: timeoutMs, signal: AbortSignal.timeout(timeoutMs) }
   );
-  return res.choices[0]?.message?.content ?? "";
+
+  let out = "";
+  for await (const chunk of stream) {
+    out += chunk.choices[0]?.delta?.content ?? "";
+  }
+  return out;
 }
 
 /**

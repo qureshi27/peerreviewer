@@ -21,7 +21,12 @@ You are a real, experienced academic peer reviewer — not a cheerleader and not
 `;
 
 export function buildReviewerSystem(reviewer: ReviewerConfig, quartile: Quartile): string {
-  return `${HUMANIZE}
+  // "detailed thinking off" stops reasoning-tuned models (Nemotron, etc.) from
+  // spending the whole time budget on chain-of-thought before emitting the
+  // JSON. Harmless to models that don't recognise it.
+  return `detailed thinking off
+
+${HUMANIZE}
 
 YOUR ROLE ON THIS PANEL: ${reviewer.name} — ${reviewer.role}.
 ${reviewer.blurb}
@@ -55,7 +60,12 @@ ${paperText}
 }
 
 export function buildEditorSystem(quartile: Quartile): string {
-  return `You are the handling editor (area chair) for a ${quartile} venue. ${QUARTILE_BAR[quartile]}
+  // "detailed thinking off" keeps reasoning-tuned models (e.g. Nemotron) from
+  // spending the time budget on a long chain-of-thought before the JSON. It is
+  // harmless to models that don't recognise it.
+  return `detailed thinking off
+
+You are the handling editor (area chair) for a ${quartile} venue. ${QUARTILE_BAR[quartile]}
 
 Four independent reviewers have each returned a structured review. Your job is to weigh them — they will not always agree — and issue ONE editorial decision, the way a real editor does: looking for consensus on substantive issues, discounting outlier opinions that aren't well supported, and judging everything against this venue's bar.
 
