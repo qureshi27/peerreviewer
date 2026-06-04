@@ -13,7 +13,6 @@ import type {
   PublicReviewer,
   Quartile,
   ReviewResult,
-  StreamEvent,
 } from "@/lib/types";
 
 const PANEL = publicReviewers() as PublicReviewer[];
@@ -49,77 +48,77 @@ export default function Home() {
     setFatalError(null);
     setQuartile(q);
     setTab("decision");
-    setStatusMsg("Connecting to the review panel…");
+    // Mark every reviewer as working up front, then update each independently.
+    setStates(Object.fromEntries(PANEL.map((r) => [r.id, { status: "working" as CardStatus }])));
+    setStatusMsg("The panel is reviewing — each reviewer runs on its own model…");
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
 
-    try {
-      const res = await fetch("/api/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paperText, quartile: q }),
-      });
+    // Each reviewer is its own request, so it gets its own server budget and one
+    // slow model can't starve the others. A small stagger avoids hammering the
+    // shared NVIDIA endpoint with a burst of simultaneous calls.
+    const collected: { reviewerId: string; review: ReviewResult }[] = [];
 
-      if (!res.ok || !res.body) {
-        const msg = await res.json().catch(() => ({ error: `Request failed (${res.status}).` }));
-        setFatalError(msg.error || `Request failed (${res.status}).`);
-        setRunning(false);
+    async function callReviewer(reviewerId: string, delay: number) {
+      if (delay) await new Promise((res) => setTimeout(res, delay));
+      try {
+        const res = await fetch("/api/review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reviewerId, paperText, quartile: q }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.review) {
+          collected.push({ reviewerId, review: data.review });
+          setStates((s) => ({ ...s, [reviewerId]: { status: "done", review: data.review } }));
+        } else {
+          setStates((s) => ({
+            ...s,
+            [reviewerId]: { status: "error", error: data.error || `Failed (${res.status}).` },
+          }));
+        }
+      } catch (e: any) {
+        setStates((s) => ({
+          ...s,
+          [reviewerId]: { status: "error", error: e?.message || "Network error." },
+        }));
+      }
+    }
+
+    try {
+      // Spread reviewer requests out (~1.2s apart) so we don't hit the shared
+      // NVIDIA endpoint with a simultaneous burst, a common rate-limit trigger.
+      await Promise.all(PANEL.map((r, i) => callReviewer(r.id, i * 1200)));
+
+      if (collected.length === 0) {
+        setFatalError(
+          "No reviewer was able to respond. The NVIDIA endpoint may be rate-limited or down — please try again in a moment."
+        );
         return;
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          let evt: StreamEvent;
-          try {
-            evt = JSON.parse(line);
-          } catch {
-            continue;
-          }
-          handleEvent(evt);
+      // Editorial synthesis on whatever came back.
+      setEditorStatus("working");
+      setStatusMsg("All available reviews are in. The handling editor is deliberating…");
+      try {
+        const res = await fetch("/api/decision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quartile: q, reviews: collected }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.verdict) {
+          setVerdict(data.verdict);
+        } else {
+          setFatalError(data.error || "The editor could not be reached.");
         }
-      }
-    } catch (e: any) {
-      setFatalError(e?.message ?? "The connection to the review panel was interrupted.");
-    } finally {
-      setRunning(false);
-    }
-  }
-
-  function handleEvent(evt: StreamEvent) {
-    switch (evt.type) {
-      case "status":
-        setStatusMsg(evt.message);
-        break;
-      case "reviewer_start":
-        setStates((s) => ({ ...s, [evt.reviewer.id]: { status: "working" } }));
-        break;
-      case "reviewer_done":
-        setStates((s) => ({ ...s, [evt.reviewerId]: { status: "done", review: evt.review } }));
-        break;
-      case "reviewer_error":
-        setStates((s) => ({ ...s, [evt.reviewerId]: { status: "error", error: evt.message } }));
-        break;
-      case "editor_start":
-        setStatusMsg("All reviews are in. The editor is deliberating…");
-        setEditorStatus("working");
-        break;
-      case "editor_done":
-        setVerdict(evt.verdict);
+      } catch (e: any) {
+        setFatalError(e?.message || "The editor could not be reached.");
+      } finally {
         setEditorStatus("done");
         setStatusMsg("");
-        break;
-      case "error":
-        setFatalError(evt.message);
-        break;
+      }
+    } finally {
+      setRunning(false);
     }
   }
 

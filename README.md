@@ -14,11 +14,16 @@ Rejected**.
 
 | Reviewer | Focus | Model |
 | --- | --- | --- |
-| Reviewer 1 | Methodology & Rigor | `nvidia/nemotron-3-super-120b-a12b` |
-| Reviewer 2 | Novelty & Significance | `qwen/qwen3.5-397b-a17b` |
-| Reviewer 3 | Results & Validity | `qwen/qwen3.5-122b-a10b` |
-| Reviewer 4 | Clarity & Reproducibility | `mistralai/mixtral-8x7b-instruct-v0.1` |
-| Handling Editor | Final decision | `nvidia/llama-3.3-nemotron-super-49b-v1.5` |
+| Reviewer 1 | Methodology & Rigor | `qwen/qwen3-next-80b-a3b-instruct` |
+| Reviewer 2 | Novelty & Significance | `meta/llama-4-maverick-17b-128e-instruct` |
+| Reviewer 3 | Results & Validity | `mistralai/mistral-nemotron` |
+| Reviewer 4 | Clarity & Reproducibility | `meta/llama-3.1-8b-instruct` |
+| Handling Editor | Final decision | `abacusai/dracarys-llama-3.1-70b-instruct` |
+
+These are deliberately **fast, reliable, non-reasoning** models that all support
+`response_format: json_object`. Larger reasoning models (DeepSeek V4 Pro, GPT-OSS-120B, big
+Nemotron/Qwen MoE) were tested and either return nothing within a web-request window or are too
+slow, so they only ever time out.
 
 > The results view has two tabs: **Consolidated Decision** (the final verdict plus a one-glance
 > matrix of every reviewer's recommendation, score and confidence) and **Detailed Reviews** (the
@@ -64,20 +69,12 @@ NVIDIA_API_KEY=nvapi-...            # required, server-side only (never exposed 
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1   # optional override
 ```
 
-Optional tuning knobs (defaults are tuned for Vercel's 60s function limit):
+Optional tuning knobs (per-attempt wall-clock budgets):
 
 ```
-REVIEWER_TIMEOUT_MS=40000   # per-reviewer wall-clock budget
-EDITOR_TIMEOUT_MS=18000     # editor wall-clock budget
+REVIEWER_TIMEOUT_MS=26000   # per attempt; one retry fits inside a 60s function (26s + 26s)
+EDITOR_TIMEOUT_MS=45000     # editor budget
 ```
-
-> **About the large models.** This panel uses big models on purpose (a 120B Nemotron, a 397B-MoE
-> and a 122B-MoE Qwen). They are reasoning-capable and slower than 70B-class models. On Vercel's
-> **Hobby** plan (60s cap) the 120B reviewer can occasionally exceed its 40s slice and drop out —
-> the editor then decides on the reviewers that finished, and a decision is always returned. For
-> **all four reviewers every time**, deploy on **Vercel Pro**, raise `maxDuration` in
-> [`app/api/review/route.ts`](app/api/review/route.ts) (e.g. to `120`), and set
-> `REVIEWER_TIMEOUT_MS=90000` / `EDITOR_TIMEOUT_MS=40000`.
 
 ## Deploy to Vercel
 
@@ -86,28 +83,31 @@ EDITOR_TIMEOUT_MS=18000     # editor wall-clock budget
    `NVIDIA_BASE_URL`). Do **not** prefix it with `NEXT_PUBLIC_` — the key must stay server-side.
 3. Deploy.
 
-### A note on timing & the NVIDIA endpoint
+### Architecture — why each reviewer is its own request
 
 `build.nvidia.com` is a free, shared developer endpoint with **rate limits and variable latency**.
-The app is built to handle this gracefully:
+To stay robust against that, the work is split so each piece gets its own serverless invocation:
 
-- Reviewers run in parallel with a per-call timeout, so one slow model can't hang the request.
-- If a reviewer times out, the editor simply decides on the reviews that completed.
-- If the editor model itself is unavailable, a **deterministic fallback** derives the final decision
-  from the reviewers' scores — so a decision is *always* returned.
+- The browser calls **`/api/review` once per reviewer, in parallel** — so each reviewer gets its own
+  full ~60s function budget instead of four reviewers racing a single window. One slow model can't
+  starve the others, and each card updates the moment its model replies.
+- Each reviewer call **forces JSON** (`response_format: json_object`) and **retries once** on a parse
+  miss — the per-attempt timeout (26s) is set so the retry still fits inside one 60s function.
+- The browser then calls **`/api/decision`** with whatever reviews came back. The editor model
+  synthesises them; if it's unavailable, a **deterministic fallback** derives the decision from the
+  reviewers' scores — so a final decision is *always* returned.
+- Completions are **streamed internally**, which avoids the gateway 504 that long non-streamed
+  generations trigger.
 
-A full 4-reviewer + editor run typically takes ~30–60s. On Vercel's **Hobby** plan (60s function
-cap) this fits, but under heavy rate-limiting some reviewers may drop out. For consistent full-panel
-results:
-
-- Use **Vercel Pro** and raise `maxDuration` in [`app/api/review/route.ts`](app/api/review/route.ts)
-  to e.g. `300`, then increase the timeout env vars above; **or**
-- Use a dedicated NVIDIA NIM endpoint (set `NVIDIA_BASE_URL`) without the shared rate limits.
+A full run typically completes in ~30–60s. This fits Vercel's **Hobby** 60s cap because no single
+function runs more than one reviewer (or the editor). Under heavy rate-limiting a reviewer may still
+drop out, in which case the editor decides on the rest. For a dedicated, un-throttled deployment,
+point `NVIDIA_BASE_URL` at your own NVIDIA NIM endpoint.
 
 ## Tech
 
-Next.js 14 (App Router) · TypeScript · Tailwind CSS · NVIDIA NIM (OpenAI-compatible) ·
-`pdfjs-dist` for in-browser PDF extraction · NDJSON streaming from the API route.
+Next.js 14 (App Router) · TypeScript · Tailwind CSS · NVIDIA NIM (OpenAI-compatible, JSON mode,
+internal streaming) · `pdfjs-dist` for in-browser PDF extraction · per-reviewer parallel requests.
 
 ## Disclaimer
 

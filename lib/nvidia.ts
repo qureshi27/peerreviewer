@@ -35,6 +35,8 @@ interface CompletionOpts {
   maxTokens?: number;
   /** Hard wall-clock timeout for this single call, in ms. */
   timeoutMs?: number;
+  /** Force the model to emit a valid JSON object (response_format). */
+  jsonMode?: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export async function complete({
   temperature = 0.5,
   maxTokens = 2400,
   timeoutMs = 90_000,
+  jsonMode = false,
 }: CompletionOpts): Promise<string> {
   // We stream and accumulate rather than awaiting one big response. The NVIDIA
   // gateway returns a 504 on long *non-streamed* generations (large/reasoning
@@ -60,6 +63,7 @@ export async function complete({
       temperature,
       max_tokens: maxTokens,
       stream: true,
+      ...(jsonMode ? { response_format: { type: "json_object" as const } } : {}),
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
